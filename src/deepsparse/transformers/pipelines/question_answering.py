@@ -38,6 +38,7 @@ from typing import Any, Dict, List, Optional, Tuple, Type
 
 import numpy
 from pydantic import BaseModel, Field
+from transformers import AutoTokenizer
 from transformers.data import (
     SquadExample,
     SquadFeatures,
@@ -315,8 +316,15 @@ class QuestionAnsweringPipeline(TransformersPipeline):
         :param pipelines: Different buckets to be used
         :return: The correct Pipeline object (or Bucket) to route input to
         """
-        current_seq_len = len(input_schema.question.split())
-
+        tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
+        tokens = tokenizer(
+            input_schema.context,
+            add_special_tokens=True,
+            return_tensors="np",
+            padding=False,
+            truncation=False,
+        )
+        current_seq_len = len(tokens)
         for pipeline in pipelines:
             if pipeline.sequence_length > current_seq_len:
                 return pipeline
