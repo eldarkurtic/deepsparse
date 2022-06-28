@@ -16,6 +16,7 @@
 Base Pipeline class for transformers inference pipeline
 """
 
+import os
 import warnings
 from typing import Any, List, Mapping, Optional
 
@@ -48,10 +49,8 @@ class TransformersPipeline(Pipeline, Bucketable):
     be added to the supported nlp tasks in deepsparse.tasks so they can be properly
     imported at runtime.
 
-    :param model_path: sparsezoo stub to a transformers model, an ONNX file, or
-        (preferred) a directory containing a model.onnx, tokenizer config, and model
-        config. If no tokenizer and/or model config(s) are found, then they will be
-        loaded from huggingface transformers using the `default_model_name` key
+    :param model_path: sparsezoo stub to a transformers model or (preferred) a
+        directory containing a model.onnx, tokenizer config, and model config
     :param engine_type: inference engine to use. Currently supported values include
         'deepsparse' and 'onnxruntime'. Default is 'deepsparse'
     :param batch_size: static batch size to use for inference. Default is 1
@@ -64,24 +63,21 @@ class TransformersPipeline(Pipeline, Bucketable):
     :param alias: optional name to give this pipeline instance, useful when
         inferencing with multiple models. Default is None
     :param sequence_length: static sequence length to use for inference
-    :param default_model_name: huggingface transformers model name to use to
-        load a tokenizer and model config when none are provided in the `model_path`.
-        Default is 'bert-base-uncased'
     """
 
     def __init__(
         self,
         *,
         sequence_length: int = 128,
-        default_model_name: str = "bert-base-uncased",
         **kwargs,
     ):
 
         self._sequence_length = sequence_length
-        self._default_model_name = default_model_name
 
         self.config = None
         self.tokenizer = None
+        self.config_path = None
+        self.tokenizer_config_path = None  # path to 'tokenizer.json'
         self.onnx_input_names = None
 
         self._temp_model_directory = None
@@ -95,30 +91,16 @@ class TransformersPipeline(Pipeline, Bucketable):
         """
         return self._sequence_length
 
-    @property
-    def default_model_name(self) -> str:
-        """
-        :return: huggingface transformers model name to use to
-            load a tokenizer and model config when none are provided in the
-            `model_path`
-        """
-        return self._default_model_name
-
     def setup_onnx_file_path(self) -> str:
         """
         Parses ONNX, tokenizer, and config file paths from the given `model_path`.
-        Supports sparsezoo stubs. If a tokenizer and/or config file are not found,
-        they will be defaulted to the default_model_name in the transformers repo
+        Supports sparsezoo stubs
 
         :return: file path to the processed ONNX file for the engine to compile
         """
         onnx_path, config_path, tokenizer_path = get_onnx_path_and_configs(
-            self.model_path
+            self.model_path, require_configs=True
         )
-
-        # default config + tokenizer if necessary
-        config_path = config_path or self.default_model_name
-        tokenizer_path = tokenizer_path or self.default_model_name
 
         self.config = AutoConfig.from_pretrained(
             config_path, finetuning_task=self.task if hasattr(self, "task") else None
@@ -126,6 +108,8 @@ class TransformersPipeline(Pipeline, Bucketable):
         self.tokenizer = AutoTokenizer.from_pretrained(
             tokenizer_path, model_max_length=self.sequence_length
         )
+        self.config_path = os.path.join(config_path, "config.json")
+        self.tokenizer_config_path = os.path.join(tokenizer_path, "tokenizer.json")
 
         # overwrite onnx graph to given required input shape
         (
@@ -229,6 +213,5 @@ def pipeline(
         num_cores=num_cores,
         scheduler=scheduler,
         sequence_length=max_length,
-        default_model_name=model_name,
         **kwargs,
     )
