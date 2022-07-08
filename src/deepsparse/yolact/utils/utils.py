@@ -389,13 +389,9 @@ def _assert_channels_last(array: numpy.ndarray) -> numpy.ndarray:
     # make sure that the output is an array with dims
     # (B, H, W, C) or (H,W,C)
     if array.ndim == 4:
-        if (array.shape[1] < array.shape[2]) and (array.shape[1] < array.shape[3]):
-            # if (B, C, W, H) then swap channels if
-            # C < W and C < W
+        if array.shape[1] < array.shape[2]:
             array = array.transpose(0, 2, 3, 1)
     else:
-        if (array.shape[0] < array.shape[1]) and (array.shape[0] < array.shape[2]):
-            # if (C, W, H) then swap channels if
-            # C < W and C < H
+        if array.shape[0] < array.shape[1]:
             array = array.transpose(1, 2, 0)
     return array
