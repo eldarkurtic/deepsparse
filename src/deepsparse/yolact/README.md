@@ -15,7 +15,7 @@ compatible with our [hardware requirements](https://docs.neuralmagic.com/deepspa
 
 ### Installation
 
-```pip install deepsparse[yolact]```
+```pip install deepsparse```
 
 ### Model Format
 By default, to deploy YOLACT using DeepSparse Engine it is required to supply the model in the ONNX format. 
